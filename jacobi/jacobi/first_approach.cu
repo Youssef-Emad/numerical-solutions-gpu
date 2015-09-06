@@ -2,7 +2,7 @@
 #include "device_launch_parameters.h"
 #include <stdio.h>
 
-void jacobiFirst(float *x, const float *diagonal_values , const float *non_diagonal_values, const int *indeces,const float *y, const int size);
+void jacobiFirst();
 
 __global__ void jacobiOne(float *x, const float *diagonal_values , const float *non_diagonal_values, const int *indeces ,const float *y, const int size)
 {
@@ -93,8 +93,42 @@ __global__ void jacobiOneSharedAndLocal(float *x, const float *diagonal_values ,
 	}
 }
 
-void jacobiFirst(float *x, const float *diagonal_values , const float *non_diagonal_values, const int *indeces,const float *y, const int size)
+void jacobiFirst()
 {
+	//initialize our test cases
+    const int arraySize = 24;
+	/*float non_diagonal_values[] ={3,2,1,2,2,1};
+	float diagonal_values[3] ={5,6,7};
+	int indeces[] ={1,2,0,2,0,1};
+	int y[arraySize]= {14,13,24};*/
+
+	/*float non_diagonal_values[] = {0.0185,0,0.0185,0,0.0185,0,0.0185,0,0.0185,0,0.0185,0,0.0185,0,0.0185,0,0.0185,0,0.0185,0,0.0185,0,0.0185,0} ;
+	float diagonal_values[12] = {};
+	int indeces[2*arraySize] = {0};
+    float x[arraySize] = { 0 };
+	float y[arraySize] = {};
+	for (int i = 0 ; i<12 ; i++)
+	{
+		y[i] = 0.0878 ;
+		diagonal_values[i] = 0.0741;
+	}*/
+
+	float non_diagonal_values[] = {0.0104,0, 0.0104, 0.0104, 0.0104,0, 0.0104,0, 0.0104,0, 0.0104,0, 0.0104,0, 0.0104, 0.0104, 0.0104,0, 0.0104,0, 0.0104, 0.0104, 0.0104, 0.0104, 0.0104,0, 0.0104, 0.0104, 0.0104, 0.0104, 0.0104, 0.0104, 0.0104,0, 0.0104,0, 0.0104,0, 0.0104,0, 0.0104,0, 0.0104, 0.0104, 0.0104,0, 0.0104,0} ;
+	float diagonal_values[24] = {};
+	int indeces[2*arraySize] = {1,1,0,2,1,1,10,10,11,11,7,7,13,13,5,9,15,15,7,7,3,17,4,18,14,14,6,20,12,16,8,22,14,14,10,10,11,11,21,21,13,13,19,23,15,15,21,21};
+    float x[arraySize] = { 0 };
+	float y[arraySize] = {0.0420,0.0594,0.0420,0.0420,0.0420,0.0420,0.0420,0.0594,0.0420,0.0420, 0.0594, 0.0594, 0.0420,0.0594,0.0594,0.0594, 0.0420, 0.0420, 0.0420, 0.0420, 0.0420,0.0594,0.0420,0.0420};
+	for (int i = 0 ; i<24 ; i++)
+	{
+		diagonal_values[i] =  0.0417;
+	}
+
+	/*float non_diagonal_values[8] = {0} ;
+	float diagonal_values[] = {0.1667,0.1667,0.1667,0.1667} ;
+	int indeces[8] = {0};
+	float y[] = {0.2036,0.2036,0.2036,0.2036};
+	float x[arraySize] = { 0 };*/
+
     float *dev_non_diagonal_values = 0;
 	float *dev_diagonal_values = 0;
     int *dev_indeces = 0;
@@ -122,7 +156,7 @@ void jacobiFirst(float *x, const float *diagonal_values , const float *non_diago
 
     // cudaDeviceSynchronize waits for the kernel to finish, and returns
     // any errors encountered during the launch.
-   cudaDeviceSynchronize();
+	 cudaDeviceSynchronize();
     // Copy output vector from GPU buffer to host memory.
     cudaMemcpy(x, dev_x, size * sizeof(float), cudaMemcpyDeviceToHost);
     
@@ -132,4 +166,5 @@ Error:
     cudaFree(dev_diagonal_values);
     cudaFree(dev_non_diagonal_values);
     cudaFree(dev_indeces);
+	cudaDeviceReset();
 }
