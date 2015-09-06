@@ -2,6 +2,8 @@
 #include "device_launch_parameters.h"
 #include <stdio.h>
 
+void jacobiFirst(float *x, const float *diagonal_values , const float *non_diagonal_values, const int *indeces,const float *y, const int size);
+
 __global__ void jacobiOne(float *x, const float *diagonal_values , const float *non_diagonal_values, const int *indeces ,const float *y, const int size)
 {
     const int index = threadIdx.x;
@@ -89,4 +91,45 @@ __global__ void jacobiOneSharedAndLocal(float *x, const float *diagonal_values ,
 		}
 		x[index] = shared_x[index];
 	}
+}
+
+void jacobiFirst(float *x, const float *diagonal_values , const float *non_diagonal_values, const int *indeces,const float *y, const int size)
+{
+    float *dev_non_diagonal_values = 0;
+	float *dev_diagonal_values = 0;
+    int *dev_indeces = 0;
+	float *dev_y = 0 ;
+    float *dev_x = 0;
+
+    cudaSetDevice(0);
+	
+
+    // Allocate GPU buffers
+    cudaMalloc((void**)&dev_x, size * sizeof(float));
+    cudaMalloc((void**)&dev_non_diagonal_values, 2 * size * sizeof(float));
+    cudaMalloc((void**)&dev_indeces, 2 * size * sizeof(int));
+	cudaMalloc((void**)&dev_y, size * sizeof(float));
+   
+    // Copy input vectors from host memory to GPU buffers.
+	cudaMemcpy(dev_diagonal_values, diagonal_values, size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_non_diagonal_values, non_diagonal_values, 2 * size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_indeces, indeces, 2 * size * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_y, y, size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_x, x, size * sizeof(float), cudaMemcpyHostToDevice);
+    
+    // Launch a kernel on the GPU with one thread for each element.
+    jacobiOneSharedAndLocal<<<1, size>>>(dev_x, dev_diagonal_values , dev_non_diagonal_values , dev_indeces , dev_y , size);
+
+    // cudaDeviceSynchronize waits for the kernel to finish, and returns
+    // any errors encountered during the launch.
+   cudaDeviceSynchronize();
+    // Copy output vector from GPU buffer to host memory.
+    cudaMemcpy(x, dev_x, size * sizeof(float), cudaMemcpyDeviceToHost);
+    
+Error:
+    cudaFree(dev_x);
+	cudaFree(dev_y);
+    cudaFree(dev_diagonal_values);
+    cudaFree(dev_non_diagonal_values);
+    cudaFree(dev_indeces);
 }
