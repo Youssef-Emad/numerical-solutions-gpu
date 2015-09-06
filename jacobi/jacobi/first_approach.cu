@@ -111,11 +111,11 @@ void jacobiFirst(float *x, const float *diagonal_values , const float *non_diago
 	cudaMalloc((void**)&dev_y, size * sizeof(float));
    
     // Copy input vectors from host memory to GPU buffers.
-	cudaMemcpy(dev_diagonal_values, diagonal_values, size * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(dev_non_diagonal_values, non_diagonal_values, 2 * size * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(dev_indeces, indeces, 2 * size * sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(dev_y, y, size * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(dev_x, x, size * sizeof(float), cudaMemcpyHostToDevice);
+	cudaMemcpyAsync(dev_diagonal_values, diagonal_values, size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpyAsync(dev_non_diagonal_values, non_diagonal_values, 2 * size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpyAsync(dev_indeces, indeces, 2 * size * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpyAsync(dev_y, y, size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpyAsync(dev_x, x, size * sizeof(float), cudaMemcpyHostToDevice);
     
     // Launch a kernel on the GPU with one thread for each element.
     jacobiOneSharedAndLocal<<<1, size>>>(dev_x, dev_diagonal_values , dev_non_diagonal_values , dev_indeces , dev_y , size);
