@@ -6,14 +6,15 @@ void jacobiFirst();
 
 __global__ void jacobiCsr(float *x, const float *diagonal_values , const float * values, const int *rowPtr ,const int *colIdx,const float *y, const int size)
 {
-    const int index = threadIdx.x;
-	int row_start = rowPtr[index];
-	int row_end = rowPtr[index +1];
-
-	float sum = 0 ;
+	const int index = threadIdx.x;
 
 	if (index < size)
 	{
+		int row_start = rowPtr[index];
+		int row_end = rowPtr[index +1];
+
+		float sum = 0 ;
+
 		for (int j = 0 ; j< 30 ; j++)
 		{
 			for (int i = row_start ; i< row_end ; i++)
@@ -30,24 +31,26 @@ __global__ void jacobiCsr(float *x, const float *diagonal_values , const float *
 __global__ void jacobiCsrShared(float *x, const float *diagonal_values , const float * values, const int *rowPtr ,const int *colIdx,const float *y, const int size)
 {
     const int index = threadIdx.x;
-	__shared__ float shared_diagonal_values[24] ;
-	__shared__ float shared_values[48];
-	__shared__ int shared_colIdx[24];
-	__shared__ float shared_x[24];
-	__shared__ float shared_y[24];
 
-	shared_diagonal_values[index] = diagonal_values[index];
-	shared_values[index] = values[index];
-	shared_colIdx[index] = colIdx[index];
-	shared_y[index] = y[index];
-	shared_x[index] = x[index];
-
-	int row_start = rowPtr[index];
-	int row_end = rowPtr[index +1];
-
-	float sum = 0 ;
 	if (index < size)
 	{
+		__shared__ float shared_diagonal_values[24] ;
+		__shared__ float shared_values[48];
+		__shared__ int shared_colIdx[24];
+		__shared__ float shared_x[24];
+		__shared__ float shared_y[24];
+
+		shared_diagonal_values[index] = diagonal_values[index];
+		shared_values[index] = values[index];
+		shared_colIdx[index] = colIdx[index];
+		shared_y[index] = y[index];
+		shared_x[index] = x[index];
+
+		int row_start = rowPtr[index];
+		int row_end = rowPtr[index +1];
+
+		float sum = 0 ;
+
 		for (int j = 0 ; j< 30 ; j++)
 		{
 			for (int i = row_start ; i< row_end ; i++)
@@ -105,14 +108,8 @@ void jacobiCsrOne()
 	cudaMemcpyAsync(dev_y, y, size * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpyAsync(dev_x, x, size * sizeof(float), cudaMemcpyHostToDevice);
     
-	cudaEventRecord(start, 0);
-    // Launch a kernel on the GPU with one thread for each element.
-	jacobiCsrShared<<<1, size>>>(dev_x, dev_diagonal_values , dev_values , dev_rowPtr,dev_colIdx , dev_y , size);
-	
-	cudaEventRecord(stop, 0);
-	cudaEventSynchronize(stop);
-	cudaEventElapsedTime(&time, start, stop);
-	printf ("Time for the kernel: %f ms\n", time);
+	// Launch a kernel on the GPU with one thread for each row
+	jacobiCsrShared<<<ceil(size/32.0), 32>>>(dev_x, dev_diagonal_values , dev_values , dev_rowPtr,dev_colIdx , dev_y , size);
 
     // cudaDeviceSynchronize waits for the kernel to finish, and returns
     // any errors encountered during the launch.

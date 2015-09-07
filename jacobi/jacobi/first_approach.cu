@@ -7,10 +7,10 @@ void jacobiFirst();
 __global__ void jacobiOne(float *x, const float *diagonal_values , const float *non_diagonal_values, const int *indeces ,const float *y, const int size)
 {
     const int index = threadIdx.x;
-	float sum = 0 ;
 
 	if (index < size)
 	{
+		float sum = 0 ;
 		for (int j = 0 ; j< 30 ; j++)
 		{
 			for (int i = 0 ; i<2 ; i++)
@@ -27,23 +27,25 @@ __global__ void jacobiOne(float *x, const float *diagonal_values , const float *
 __global__ void jacobiOneShared(float *x, const float *diagonal_values , const float *non_diagonal_values, const int *indeces ,const float *y, const int size)
 {
     const int index = threadIdx.x;
-	__shared__ float shared_diagonal_values[24] ;
-	__shared__ float shared_non_diagonal_values[48];
-	__shared__ int shared_indeces[48];
-	__shared__ float shared_y[24];
-	__shared__ float shared_x[24];
-
-	shared_diagonal_values[index] = diagonal_values[index];
-	shared_non_diagonal_values[2*index] = non_diagonal_values[2*index];
-	shared_non_diagonal_values[2*index+1] = non_diagonal_values[2*index+1];
-	shared_indeces[2*index] = indeces[2*index];
-	shared_indeces[2*index+1] = indeces[2*index+1];
-	shared_y[index] = y[index];
-	shared_x[index] = x[index];
-
-	float sum = 0 ;
+	
 	if (index < size)
 	{
+		__shared__ float shared_diagonal_values[24] ;
+		__shared__ float shared_non_diagonal_values[48];
+		__shared__ int shared_indeces[48];
+		__shared__ float shared_y[24];
+		__shared__ float shared_x[24];
+
+		shared_diagonal_values[index] = diagonal_values[index];
+		shared_non_diagonal_values[2*index] = non_diagonal_values[2*index];
+		shared_non_diagonal_values[2*index+1] = non_diagonal_values[2*index+1];
+		shared_indeces[2*index] = indeces[2*index];
+		shared_indeces[2*index+1] = indeces[2*index+1];
+		shared_y[index] = y[index];
+		shared_x[index] = x[index];
+
+		float sum = 0 ;
+
 		for (int j = 0 ; j< 30 ; j++)
 		{
 			for (int i = 0 ; i<2 ; i++)
@@ -61,23 +63,25 @@ __global__ void jacobiOneShared(float *x, const float *diagonal_values , const f
 __global__ void jacobiOneSharedAndLocal(float *x, const float *diagonal_values , const float *non_diagonal_values, const int *indeces ,const float *y, const int size)
 {
     const int index = threadIdx.x;
-	float local_diagonal_value ;
-	float local_non_diagonal_values[2];
-	int local_indeces[2];
-	float local_y;
-	__shared__ float shared_x[24];
 
-	local_diagonal_value = diagonal_values[index];
-	local_non_diagonal_values[0] = non_diagonal_values[2*index];
-	local_non_diagonal_values[1] = non_diagonal_values[2*index+1];
-	local_indeces[0] = indeces[2*index];
-	local_indeces[1] = indeces[2*index+1];
-	local_y = y[index];
-	shared_x[index] = x[index];
-
-	float sum = 0 ;
 	if (index < size)
 	{
+		float local_diagonal_value ;
+		float local_non_diagonal_values[2];
+		int local_indeces[2];
+		float local_y;
+		__shared__ float shared_x[24];
+
+		local_diagonal_value = diagonal_values[index];
+		local_non_diagonal_values[0] = non_diagonal_values[2*index];
+		local_non_diagonal_values[1] = non_diagonal_values[2*index+1];
+		local_indeces[0] = indeces[2*index];
+		local_indeces[1] = indeces[2*index+1];
+		local_y = y[index];
+		shared_x[index] = x[index];
+
+		float sum = 0 ;
+
 		for (int j = 0 ; j< 30 ; j++)
 		{
 			for (int i = 0 ; i<2 ; i++)
@@ -96,7 +100,7 @@ __global__ void jacobiOneSharedAndLocal(float *x, const float *diagonal_values ,
 void jacobiFirst()
 {
 	//initialize our test cases
-    const int arraySize = 24;
+    const int size = 24;
 	/*float non_diagonal_values[] ={3,2,1,2,2,1};
 	float diagonal_values[3] ={5,6,7};
 	int indeces[] ={1,2,0,2,0,1};
@@ -114,10 +118,10 @@ void jacobiFirst()
 	}*/
 
 	float non_diagonal_values[] = {0.0104,0, 0.0104, 0.0104, 0.0104,0, 0.0104,0, 0.0104,0, 0.0104,0, 0.0104,0, 0.0104, 0.0104, 0.0104,0, 0.0104,0, 0.0104, 0.0104, 0.0104, 0.0104, 0.0104,0, 0.0104, 0.0104, 0.0104, 0.0104, 0.0104, 0.0104, 0.0104,0, 0.0104,0, 0.0104,0, 0.0104,0, 0.0104,0, 0.0104, 0.0104, 0.0104,0, 0.0104,0} ;
-	float diagonal_values[24] = {};
-	int indeces[2*arraySize] = {1,1,0,2,1,1,10,10,11,11,7,7,13,13,5,9,15,15,7,7,3,17,4,18,14,14,6,20,12,16,8,22,14,14,10,10,11,11,21,21,13,13,19,23,15,15,21,21};
-    float x[arraySize] = { 0 };
-	float y[arraySize] = {0.0420,0.0594,0.0420,0.0420,0.0420,0.0420,0.0420,0.0594,0.0420,0.0420, 0.0594, 0.0594, 0.0420,0.0594,0.0594,0.0594, 0.0420, 0.0420, 0.0420, 0.0420, 0.0420,0.0594,0.0420,0.0420};
+	float diagonal_values[size] = {};
+	int indeces[2*size] = {1,1,0,2,1,1,10,10,11,11,7,7,13,13,5,9,15,15,7,7,3,17,4,18,14,14,6,20,12,16,8,22,14,14,10,10,11,11,21,21,13,13,19,23,15,15,21,21};
+    float x[size] = { 0 };
+	float y[size] = {0.0420,0.0594,0.0420,0.0420,0.0420,0.0420,0.0420,0.0594,0.0420,0.0420, 0.0594, 0.0594, 0.0420,0.0594,0.0594,0.0594, 0.0420, 0.0420, 0.0420, 0.0420, 0.0420,0.0594,0.0420,0.0420};
 	for (int i = 0 ; i<24 ; i++)
 	{
 		diagonal_values[i] =  0.0417;
@@ -137,10 +141,10 @@ void jacobiFirst()
 
     cudaSetDevice(0);
 	
-
     // Allocate GPU buffers
     cudaMalloc((void**)&dev_x, size * sizeof(float));
     cudaMalloc((void**)&dev_non_diagonal_values, 2 * size * sizeof(float));
+    cudaMalloc((void**)&dev_diagonal_values, size * sizeof(float));
     cudaMalloc((void**)&dev_indeces, 2 * size * sizeof(int));
 	cudaMalloc((void**)&dev_y, size * sizeof(float));
    
@@ -151,16 +155,15 @@ void jacobiFirst()
 	cudaMemcpyAsync(dev_y, y, size * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpyAsync(dev_x, x, size * sizeof(float), cudaMemcpyHostToDevice);
     
-    // Launch a kernel on the GPU with one thread for each element.
-    jacobiOneSharedAndLocal<<<1, size>>>(dev_x, dev_diagonal_values , dev_non_diagonal_values , dev_indeces , dev_y , size);
+    // Launch a kernel on the GPU with one thread for each row.
+    jacobiOneSharedAndLocal<<<ceil(size/32.0), 32>>>(dev_x, dev_diagonal_values , dev_non_diagonal_values , dev_indeces , dev_y , size);
 
     // cudaDeviceSynchronize waits for the kernel to finish, and returns
     // any errors encountered during the launch.
 	 cudaDeviceSynchronize();
     // Copy output vector from GPU buffer to host memory.
-    cudaMemcpy(x, dev_x, size * sizeof(float), cudaMemcpyDeviceToHost);
-    
-Error:
+    cudaMemcpyAsync(x, dev_x, size * sizeof(float), cudaMemcpyDeviceToHost);
+
     cudaFree(dev_x);
 	cudaFree(dev_y);
     cudaFree(dev_diagonal_values);
