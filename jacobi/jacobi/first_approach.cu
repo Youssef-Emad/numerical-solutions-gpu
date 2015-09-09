@@ -1,8 +1,11 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include <stdio.h>
+#include<stdlib.h>
+#include <string.h>
 
-void jacobiFirst();
+void jacobiFirst(const int , char*);
+char* concat(char*,char*);
 
 __global__ void jacobiOne(float *x, const float *diagonal_values , const float *non_diagonal_values, const int *indeces ,const float *y, const int size)
 {
@@ -70,7 +73,7 @@ __global__ void jacobiOneSharedAndLocal(float *x, const float *diagonal_values ,
 		float local_non_diagonal_values[2];
 		int local_indeces[2];
 		float local_y;
-		__shared__ float shared_x[24];
+		extern __shared__ float shared_x[];
 
 		local_diagonal_value = diagonal_values[index];
 		local_non_diagonal_values[0] = non_diagonal_values[2*index];
@@ -97,41 +100,42 @@ __global__ void jacobiOneSharedAndLocal(float *x, const float *diagonal_values ,
 	}
 }
 
-void jacobiFirst()
+void jacobiFirst(const int size , char* file_name)
 {
 	//initialize our test cases
-    const int size = 24;
-	/*float non_diagonal_values[] ={3,2,1,2,2,1};
-	float diagonal_values[3] ={5,6,7};
-	int indeces[] ={1,2,0,2,0,1};
-	int y[arraySize]= {14,13,24};*/
 
-	/*float non_diagonal_values[] = {0.0185,0,0.0185,0,0.0185,0,0.0185,0,0.0185,0,0.0185,0,0.0185,0,0.0185,0,0.0185,0,0.0185,0,0.0185,0,0.0185,0} ;
-	float diagonal_values[12] = {};
-	int indeces[2*arraySize] = {0};
-    float x[arraySize] = { 0 };
-	float y[arraySize] = {};
-	for (int i = 0 ; i<12 ; i++)
-	{
-		y[i] = 0.0878 ;
-		diagonal_values[i] = 0.0741;
-	}*/
+	float *non_diagonal_values = (float *)malloc(2 * size * sizeof(float));
+	float *diagonal_values = (float *)malloc(size * sizeof(float));
+	int *indeces = (int *)malloc(2 * size * sizeof(int));
+	float *x = (float *)malloc(size * sizeof(float));
+	float *y = (float *)malloc(size * sizeof(float));
+	float *output = (float *)malloc(size * sizeof(float));
 
-	float non_diagonal_values[] = {0.0104,0, 0.0104, 0.0104, 0.0104,0, 0.0104,0, 0.0104,0, 0.0104,0, 0.0104,0, 0.0104, 0.0104, 0.0104,0, 0.0104,0, 0.0104, 0.0104, 0.0104, 0.0104, 0.0104,0, 0.0104, 0.0104, 0.0104, 0.0104, 0.0104, 0.0104, 0.0104,0, 0.0104,0, 0.0104,0, 0.0104,0, 0.0104,0, 0.0104, 0.0104, 0.0104,0, 0.0104,0} ;
-	float diagonal_values[size] = {};
-	int indeces[2*size] = {1,1,0,2,1,1,10,10,11,11,7,7,13,13,5,9,15,15,7,7,3,17,4,18,14,14,6,20,12,16,8,22,14,14,10,10,11,11,21,21,13,13,19,23,15,15,21,21};
-    float x[size] = { 0 };
-	float y[size] = {0.0420,0.0594,0.0420,0.0420,0.0420,0.0420,0.0420,0.0594,0.0420,0.0420, 0.0594, 0.0594, 0.0420,0.0594,0.0594,0.0594, 0.0420, 0.0420, 0.0420, 0.0420, 0.0420,0.0594,0.0420,0.0420};
-	for (int i = 0 ; i<24 ; i++)
+	char* diagonal_values_file_name = concat(file_name,"/first_approach/first_approach_diagonal_values.txt") ;
+	char* non_diagonal_values_file_name = concat(file_name,"/first_approach/first_approach_non_diagonal_values.txt");
+	char* indeces_file_name = concat(file_name,"/first_approach/first_approach_indeces.txt");
+	char* y_file_name = concat(file_name,"/right_hand_side.txt");
+	char* output_file_name = concat(file_name,"/output.txt");
+
+	FILE *diagonal_values_file = fopen(diagonal_values_file_name, "r");
+	FILE *non_diagonal_values_file = fopen(non_diagonal_values_file_name, "r");
+	FILE *indeces_file = fopen(indeces_file_name, "r");
+	FILE *y_file = fopen(y_file_name, "r");
+	FILE *output_file = fopen(output_file_name, "r");
+
+	for (int i = 0 ; i < size ; i++)
 	{
-		diagonal_values[i] =  0.0417;
+		fscanf(diagonal_values_file, "%f", &diagonal_values[i]);	
+		fscanf(y_file, "%f", &y[i]);	
+		fscanf(output_file, "%f", &output[i]);
+		x[i] = 0 ;
 	}
 
-	/*float non_diagonal_values[8] = {0} ;
-	float diagonal_values[] = {0.1667,0.1667,0.1667,0.1667} ;
-	int indeces[8] = {0};
-	float y[] = {0.2036,0.2036,0.2036,0.2036};
-	float x[arraySize] = { 0 };*/
+	for (int i = 0 ; i< 2*size ; i++)
+	{
+		fscanf(indeces_file, "%d", &indeces[i]);	
+		fscanf(non_diagonal_values_file, "%f", &non_diagonal_values[i]);	
+	}
 
     float *dev_non_diagonal_values = 0;
 	float *dev_diagonal_values = 0;
@@ -156,7 +160,7 @@ void jacobiFirst()
     cudaMemcpyAsync(dev_x, x, size * sizeof(float), cudaMemcpyHostToDevice);
     
     // Launch a kernel on the GPU with one thread for each row.
-    jacobiOneSharedAndLocal<<<ceil(size/32.0), 32>>>(dev_x, dev_diagonal_values , dev_non_diagonal_values , dev_indeces , dev_y , size);
+	jacobiOneSharedAndLocal<<<ceil(size/32.0), 32 , size * sizeof(float)>>>(dev_x, dev_diagonal_values , dev_non_diagonal_values , dev_indeces , dev_y , size);
 
     // cudaDeviceSynchronize waits for the kernel to finish, and returns
     // any errors encountered during the launch.
@@ -164,10 +168,31 @@ void jacobiFirst()
     // Copy output vector from GPU buffer to host memory.
     cudaMemcpyAsync(x, dev_x, size * sizeof(float), cudaMemcpyDeviceToHost);
 
-    cudaFree(dev_x);
+	free(diagonal_values);
+	free(non_diagonal_values) ;
+	free(indeces);
+	free(x);
+	free(y);
+	free(output) ;
+	cudaFree(dev_x);
 	cudaFree(dev_y);
     cudaFree(dev_diagonal_values);
     cudaFree(dev_non_diagonal_values);
     cudaFree(dev_indeces);
 	cudaDeviceReset();
+}
+
+char* concat(char *s1, char *s2)
+{
+    char *result = (char *)malloc(strlen(s1)+strlen(s2)+1);
+    strcpy(result, s1);
+    strcat(result, s2);
+    return result;
+}
+
+int main() 
+{
+	jacobiFirst(24,"C:/Users/youssef/Desktop/numerical-solutions-gpu/jacobi/jacobi/test_cases/24");
+	system("pause");
+	return 1 ;
 }
