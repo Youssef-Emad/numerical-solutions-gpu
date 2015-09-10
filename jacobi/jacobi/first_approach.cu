@@ -81,7 +81,7 @@ __global__ void jacobiOneSharedAndLocal(float *x, const float *diagonal_values ,
 		local_indeces[0] = indeces[2*index];
 		local_indeces[1] = indeces[2*index+1];
 		local_y = y[index];
-		shared_x[index] = x[index];
+		shared_x[index] = 0;
 
 		float sum = 0 ;
 
@@ -188,11 +188,4 @@ char* concat(char *s1, char *s2)
     strcpy(result, s1);
     strcat(result, s2);
     return result;
-}
-
-int main() 
-{
-	jacobiFirst(24,"C:/Users/youssef/Desktop/numerical-solutions-gpu/jacobi/jacobi/test_cases/24");
-	system("pause");
-	return 1 ;
 }
