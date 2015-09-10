@@ -65,15 +65,14 @@ __global__ void jacobiOneShared(float *x, const float *diagonal_values , const f
 
 __global__ void jacobiOneSharedAndLocal(float *x, const float *diagonal_values , const float *non_diagonal_values, const int *indeces ,const float *y, const int size)
 {
-    const int index = threadIdx.x;
-
+	const int index = blockIdx.x * blockDim.x + threadIdx.x;
+	
 	if (index < size)
 	{
 		float local_diagonal_value ;
 		float local_non_diagonal_values[2];
 		int local_indeces[2];
 		float local_y;
-		extern __shared__ float shared_x[];
 
 		local_diagonal_value = diagonal_values[index];
 		local_non_diagonal_values[0] = non_diagonal_values[2*index];
@@ -81,22 +80,20 @@ __global__ void jacobiOneSharedAndLocal(float *x, const float *diagonal_values ,
 		local_indeces[0] = indeces[2*index];
 		local_indeces[1] = indeces[2*index+1];
 		local_y = y[index];
-		shared_x[index] = 0;
-
+		
 		float sum = 0 ;
 
 		for (int j = 0 ; j< 30 ; j++)
 		{
 			for (int i = 0 ; i<2 ; i++)
 			{
-				sum += local_non_diagonal_values[i]  * shared_x[local_indeces[i]] ;
+				sum += local_non_diagonal_values[i]  * x[local_indeces[i]] ;
 			}
 			
-			shared_x[index] = (local_y - sum )/local_diagonal_value;
+			x[index] = (local_y - sum )/local_diagonal_value;
 			sum = 0 ;
 			__syncthreads();	
 		}
-		x[index] = shared_x[index];
 	}
 }
 
@@ -160,14 +157,14 @@ void jacobiFirst(const int size , char* file_name)
     cudaMemcpyAsync(dev_x, x, size * sizeof(float), cudaMemcpyHostToDevice);
     
     // Launch a kernel on the GPU with one thread for each row.
-	jacobiOneSharedAndLocal<<<ceil(size/32.0), 32 , size * sizeof(float)>>>(dev_x, dev_diagonal_values , dev_non_diagonal_values , dev_indeces , dev_y , size);
+	jacobiOneSharedAndLocal<<<ceil(size/32.0), 32>>>(dev_x, dev_diagonal_values , dev_non_diagonal_values , dev_indeces , dev_y , size);
 
     // cudaDeviceSynchronize waits for the kernel to finish, and returns
     // any errors encountered during the launch.
 	 cudaDeviceSynchronize();
     // Copy output vector from GPU buffer to host memory.
     cudaMemcpyAsync(x, dev_x, size * sizeof(float), cudaMemcpyDeviceToHost);
-
+	printf("%f\n",x[32]);
 	free(diagonal_values);
 	free(non_diagonal_values) ;
 	free(indeces);
