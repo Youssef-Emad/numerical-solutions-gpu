@@ -4,10 +4,9 @@
 #include<stdlib.h>
 #include <string.h>
 
-void jacobiFirst(const int , char*);
 char* concat(char*,char*);
 
-__global__ void jacobiOne(float *x, const float *diagonal_values , const float *non_diagonal_values, const int *indeces ,const float *y, const int size)
+/*__global__ void jacobiOne(float *x, const float *diagonal_values , const float *non_diagonal_values, const int *indeces ,const float *y, const int size)
 {
     const int index = threadIdx.x;
 
@@ -61,9 +60,9 @@ __global__ void jacobiOneShared(float *x, const float *diagonal_values , const f
 		}
 		x[index] = shared_x[index];
 	}
-}
+}*/
 
-__global__ void jacobiOneSharedAndLocal(float *x, const float *diagonal_values , const float *non_diagonal_values, const int *indeces ,const float *y, const int size)
+__global__ void jacobiFirstLocal(float *x, const float *diagonal_values , const float *non_diagonal_values, const int *indeces ,const float *y, const int size)
 {
 	const int index = blockIdx.x * blockDim.x + threadIdx.x;
 	
@@ -154,17 +153,18 @@ void jacobiFirst(const int size , char* file_name)
     cudaMemcpyAsync(dev_non_diagonal_values, non_diagonal_values, 2 * size * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpyAsync(dev_indeces, indeces, 2 * size * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpyAsync(dev_y, y, size * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpyAsync(dev_x, x, size * sizeof(float), cudaMemcpyHostToDevice);
-    
+    //cudaMemcpyAsync(dev_x, x, size * sizeof(float), cudaMemcpyHostToDevice);
+
     // Launch a kernel on the GPU with one thread for each row.
-	jacobiOneSharedAndLocal<<<ceil(size/32.0), 32>>>(dev_x, dev_diagonal_values , dev_non_diagonal_values , dev_indeces , dev_y , size);
+	jacobiFirstLocal<<<ceil(size/(1*32.0)), 1*32>>>(dev_x, dev_diagonal_values , dev_non_diagonal_values , dev_indeces , dev_y , size);
 
     // cudaDeviceSynchronize waits for the kernel to finish, and returns
     // any errors encountered during the launch.
 	 cudaDeviceSynchronize();
+	
     // Copy output vector from GPU buffer to host memory.
     cudaMemcpyAsync(x, dev_x, size * sizeof(float), cudaMemcpyDeviceToHost);
-	printf("%f\n",x[32]);
+	
 	free(diagonal_values);
 	free(non_diagonal_values) ;
 	free(indeces);
