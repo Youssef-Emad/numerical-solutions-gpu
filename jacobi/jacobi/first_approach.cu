@@ -153,7 +153,7 @@ void jacobiFirst(const int size , char* file_name)
     cudaMemcpyAsync(dev_non_diagonal_values, non_diagonal_values, 2 * size * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpyAsync(dev_indeces, indeces, 2 * size * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpyAsync(dev_y, y, size * sizeof(float), cudaMemcpyHostToDevice);
-    //cudaMemcpyAsync(dev_x, x, size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpyAsync(dev_x, x, size * sizeof(float), cudaMemcpyHostToDevice);
 
     // Launch a kernel on the GPU with one thread for each row.
 	jacobiFirstLocal<<<ceil(size/(1*32.0)), 1*32>>>(dev_x, dev_diagonal_values , dev_non_diagonal_values , dev_indeces , dev_y , size);
