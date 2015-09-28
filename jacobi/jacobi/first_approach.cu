@@ -144,7 +144,7 @@ void jacobiFirst(const int size , char* file_name)
 	float *dev_y = 0 ;
     float *dev_x = 0;
 
-	int fraction = ceil(size/32000.0) ;
+	int fraction = ceil(size/32.0) ;
     cudaSetDevice(0);
 	
     // Allocate GPU buffers
@@ -162,7 +162,7 @@ void jacobiFirst(const int size , char* file_name)
     cudaMemcpyAsync(dev_x, x, size * sizeof(float), cudaMemcpyHostToDevice);
 	
     // Launch a kernel on the GPU with one thread for each row.
-	jacobiFirstLocal<<<ceil(size/(fraction*32.0)), fraction*32>>>(dev_x, dev_diagonal_values , dev_non_diagonal_values , dev_indeces , dev_y , size);
+	jacobiFirstLocal<<<fraction, 32>>>(dev_x, dev_diagonal_values , dev_non_diagonal_values , dev_indeces , dev_y , size);
 
     // cudaDeviceSynchronize waits for the kernel to finish, and returns
     // any errors encountered during the launch.
