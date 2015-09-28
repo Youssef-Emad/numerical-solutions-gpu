@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include<stdlib.h>
 #include <string.h>
+#include <math.h>
 
 char* concat(char*,char*);
 
@@ -65,7 +66,9 @@ __global__ void jacobiOneShared(float *x, const float *diagonal_values , const f
 __global__ void jacobiFirstLocal(float *x, const float *diagonal_values , const float *non_diagonal_values, const int *indeces ,const float *y, const int size)
 {
 	const int index = blockIdx.x * blockDim.x + threadIdx.x;
-	
+	float error = 1 ;
+	float current_value = 1 ;
+
 	if (index < size)
 	{
 		float local_diagonal_value ;
@@ -82,14 +85,16 @@ __global__ void jacobiFirstLocal(float *x, const float *diagonal_values , const 
 		
 		float sum = 0 ;
 
-		for (int j = 0 ; j< 30 ; j++)
+		while(fabsf(error) > 0.00001)
 		{
 			for (int i = 0 ; i<2 ; i++)
 			{
 				sum += local_non_diagonal_values[i]  * x[local_indeces[i]] ;
 			}
 			
-			x[index] = (local_y - sum )/local_diagonal_value;
+			current_value = (local_y - sum )/local_diagonal_value;
+			error = current_value - x[index] ;
+			x[index] = current_value ;
 			sum = 0 ;
 			__syncthreads();	
 		}
@@ -155,13 +160,13 @@ void jacobiFirst(const int size , char* file_name)
     cudaMemcpyAsync(dev_indeces, indeces, 2 * size * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpyAsync(dev_y, y, size * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpyAsync(dev_x, x, size * sizeof(float), cudaMemcpyHostToDevice);
-
+	
     // Launch a kernel on the GPU with one thread for each row.
 	jacobiFirstLocal<<<ceil(size/(fraction*32.0)), fraction*32>>>(dev_x, dev_diagonal_values , dev_non_diagonal_values , dev_indeces , dev_y , size);
 
     // cudaDeviceSynchronize waits for the kernel to finish, and returns
     // any errors encountered during the launch.
-	 cudaDeviceSynchronize();
+	cudaDeviceSynchronize();
 	
     // Copy output vector from GPU buffer to host memory.
     cudaMemcpyAsync(x, dev_x, size * sizeof(float), cudaMemcpyDeviceToHost);
