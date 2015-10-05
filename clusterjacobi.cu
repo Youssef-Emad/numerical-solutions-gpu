@@ -76,6 +76,11 @@ void jacobiCuda(const int noElem , char* file_name)
 	float *output = (float *)malloc(size * sizeof(float));
 	
 	const int clusterSize =noElem - 1;
+
+	cudaEvent_t start, stop;
+	float time;
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
 	
 	char* diagonal_values_file_name = concat(file_name,"/Diag.txt") ;
 	char* non_diagonal_values_file_name = concat(file_name,"/values.txt");
@@ -120,25 +125,30 @@ void jacobiCuda(const int noElem , char* file_name)
     // Launch a kernel on the GPU with one thread for each element.
 	const dim3 blockDim(clusterSize,1,1);
 	const dim3 gridDim(2 * noElem,1,1);
+
+	cudaEventRecord(start, 0);
+
     jacobiClusteredLocal<<<gridDim, blockDim,(clusterSize + 2) * sizeof(float)>>>(clusterSize,dev_x, dev_diagonal_values , dev_non_diagonal_values , dev_y , size);
 	//cudaEventRecord(stop, 0);
 	cudaDeviceSynchronize();
-	
+
+	cudaEventRecord(stop, 0);
+	cudaEventSynchronize(stop);
+	cudaEventElapsedTime(&time, start, stop);
+	printf ("Time for the kernel: %f ms\n", time);
+
     // cudaDeviceSynchronize waits for the kernel to finish, and returns
     // any errors encountered during the launch.
     
     // Copy output vector from GPU buffer to host memory.
    cudaMemcpyAsync(x, dev_x, size * sizeof(float), cudaMemcpyDeviceToHost);
    
-   printf("%f",x[0]);
-   printf("%f",x[1]);
-   printf("%f",x[2]);
    for (int i = 0 ; i< size ; i++)
 	{
-		fprintf(output_file, "%f", &x[i]);		//ouput always 0.000000	
-		
+		fprintf(output_file, "%f",&x[i]);		//ouput always 0.000000	
+		 
 	}
-	
+	fclose(output_file);
 	free(diagonal_values);
 	free(non_diagonal_values) ;
 	free(x);
@@ -161,7 +171,7 @@ int main()
 {
 
 	
-	jacobiCuda(15,"D:\codetest");
+	jacobiCuda(75,"D:\codetest");
 
 
 	// cudaDeviceReset must be called before exiting in order for profiling and
