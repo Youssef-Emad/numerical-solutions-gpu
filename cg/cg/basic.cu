@@ -5,7 +5,9 @@
 #include <string.h>
 #include <math.h>
 
-__global__ void cg_global(float* a , int * indeces , float* b , float* x,int size) 
+char* concat(char *s1, char *s2);
+
+__global__  void cg_global(float* a , int * indeces , float* b , float* x,int size) 
 {
 	int index = threadIdx.x ;
 	__shared__  float r[1000] ;
@@ -39,14 +41,15 @@ __global__ void cg_global(float* a , int * indeces , float* b , float* x,int siz
 			if (index < size/2)
 			{
 				// summation of r*rT
-				r_squared[index] = r_squared[2*index] + r_squared[2*index + 1] ;
+				r_squared[index] = r_squared[index] + r_squared[index + s] ;
 				//summation of r*a*rT
 				p_sum[index] = p_sum[index] +  p_sum[index + s] ;
 			}
 			__syncthreads();
 		}
-	
+
 		float alpha = r_squared[0]/p_sum[0] ;
+		
 		x[index] = x[index] + alpha * r[index] ;
 
 	}
@@ -108,39 +111,57 @@ __global__ void cg_local(float* a , int * indeces , float* b , float* x,int size
 }
 
 
-void main()
+void cg(const int size , char* file_name)
 {
 	//initialize our test cases
 
-	const int size = 12 ;
-	float a[3*size] = { 0.0741,0.0185,0, 0.0185,0.0741,0, 0.0741,0.0185,0, 0.0741,0.0185,0, 0.0741,0.0185,0 ,0.0741,0.0185,0, 0.0741,0.0185,0, 0.0741,0.0185,0, 0.0741,0.0185,0, 0.0741,0.0185,0, 0.0741,0.0185,0,0.0741,0.0185,0} ;
-	int indeces[3*size] = {0,1,1,0,1,1,2,7,7,3,8,8,4,6,6,5,10,10,6,4,4,7,2,2,8,3,3,9,11,11,10,5,5,11,9,9} ;
-	float b[size] = {} ;
-	float x[size] = {};
-	
+	float *values = (float *)malloc(3 * size * sizeof(float));
+	int *indeces = (int *)malloc(3 * size * sizeof(int));
+	float *x = (float *)malloc(size * sizeof(float));
+	float *y = (float *)malloc(size * sizeof(float));
+	float *output = (float *)malloc(size * sizeof(float));
+
+	char* values_file_name = concat(file_name,"/basic/values.txt") ;
+	char* indeces_file_name = concat(file_name,"/basic/indeces.txt");
+	char* y_file_name = concat(file_name,"/right_hand_side.txt");
+	char* output_file_name = concat(file_name,"/output.txt");
+
+	FILE *values_file = fopen(values_file_name, "r");
+	FILE *indeces_file = fopen(indeces_file_name, "r");
+	FILE *y_file = fopen(y_file_name, "r");
+	FILE *output_file = fopen(output_file_name, "r");
+
 	for (int i = 0 ; i < size ; i++)
-	{
-		b[i] = 0.0878 ;
-		x[i] = 0.0878 ;
+	{	
+		fscanf(y_file, "%f", &y[i]);
+		fscanf(output_file, "%f", &output[i]);
+		x[i] = y[i] ;
 	}
-	float* dev_a = 0;
+
+	for (int i = 0 ; i< 3 * size ; i++)
+	{
+		fscanf(values_file, "%f", &values[i]);
+		fscanf(indeces_file, "%d", &indeces[i]);	
+	}
+	
+	float* dev_values = 0;
 	int* dev_indeces = 0 ;
-	float* dev_b = 0;
+	float* dev_y = 0;
 	float* dev_x = 0;
 
     cudaSetDevice(0);
 	
     // Allocate GPU buffers
    
-    cudaMalloc((void**)&dev_a, 3 * size * sizeof(float));
+    cudaMalloc((void**)&dev_values, 3 * size * sizeof(float));
 	cudaMalloc((void**)&dev_indeces, 3 * size * sizeof(int));
-    cudaMalloc((void**)&dev_b, size * sizeof(float));
+    cudaMalloc((void**)&dev_y, size * sizeof(float));
     cudaMalloc((void**)&dev_x, size * sizeof(float));
    
     // Copy input vectors from host memory to GPU buffers.
-	cudaMemcpyAsync(dev_a, a, 3 * size * sizeof(float), cudaMemcpyHostToDevice);
+	cudaMemcpyAsync(dev_values, values, 3 * size * sizeof(float), cudaMemcpyHostToDevice);
 	cudaMemcpyAsync(dev_indeces, indeces, 3 * size * sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpyAsync(dev_b, b, size * sizeof(float), cudaMemcpyHostToDevice);
+	cudaMemcpyAsync(dev_y, y, size * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpyAsync(dev_x, x, size * sizeof(float), cudaMemcpyHostToDevice);
 	
 	cudaEvent_t start, stop;
@@ -150,7 +171,7 @@ void main()
 	cudaEventRecord(start, 0);
 
     // Launch a kernel on the GPU with one thread for each row.
-	cg_global<<<1,size>>>(dev_a,dev_indeces,dev_b,dev_x,size);
+	cg_global<<<1,size>>>(dev_values,dev_indeces,dev_y,dev_x,size);
     // cudaDeviceSynchronize waits for the kernel to finish, and returns
     // any errors encountered during the launch.
 	cudaDeviceSynchronize();
@@ -164,9 +185,21 @@ void main()
 	
 	printf("%f\n",x[0]);
 	printf("%f\n",x[1]);
-	printf("%f\n",x[11]);
+	printf("%f\n",x[2]);
 	cudaDeviceReset();
 	system("pause");
 }
 
+char* concat(char *s1, char *s2)
+{
+    char *result = (char *)malloc(strlen(s1)+strlen(s2)+1);
+    strcpy(result, s1);
+    strcat(result, s2);
+    return result;
+}
 
+int main()
+{
+	cg(420,"C:/Users/youssef/Desktop/numerical-solutions-gpu/cg/cg/test_cases/420");
+	return 1 ;
+}
