@@ -5,7 +5,7 @@
 #include <string.h>
 #include <math.h>
 
-__global__ void cg(float* a , int * indeces , float* b , float* x,int size) 
+__global__ void cg_global(float* a , int * indeces , float* b , float* x,int size) 
 {
 	int index = threadIdx.x ;
 	__shared__  float r[1000] ;
@@ -53,6 +53,61 @@ __global__ void cg(float* a , int * indeces , float* b , float* x,int size)
 
 }
 
+__global__ void cg_local(float* a , int * indeces , float* b , float* x,int size) 
+{
+	int index = threadIdx.x ;
+	float local_r ;
+	float local_a[3] = {a[3*index],a[3*index + 1],a[3*index +2]} ;
+	int local_indeces[3] = {indeces[3*index],indeces[3*index + 1],indeces[3*index +2]} ;
+
+	__shared__ float r[100] ;
+	__shared__  float r_squared[100] ;
+	__shared__  float p_sum[100] ;
+
+	if (index < size)
+	{
+		float sum = 0 ;
+
+		for (int i = 0 ; i<3 ; i++)
+		{
+			sum += local_a[i] * x[local_indeces[i]] ;
+		}
+		
+		local_r = b[index] - sum ;
+		r[index]  = local_r;
+		p_sum[index] = 0 ;
+
+		__syncthreads();
+
+		for (int i = 0 ; i<3 ; i++)
+		{
+			p_sum[index] += local_a[i] * r[local_indeces[i]] ;
+		}
+		
+		//calc alpha
+		r_squared[index] = local_r * local_r ;
+		p_sum[index] = p_sum[index] * local_r ;
+
+		for (unsigned int s = blockDim.x/2 ; s> 0 ; s >>= 1)
+		{
+			if (index < size/2)
+			{
+				// summation of r*rT
+				r_squared[index] = r_squared[2*index] + r_squared[2*index + 1] ;
+				//summation of r*a*rT
+				p_sum[index] = p_sum[2*index] +  p_sum[2*index + 1] ;
+			}
+			__syncthreads();
+		}
+	
+		float alpha = r_squared[0]/p_sum[0] ;
+		x[index] = x[index] + alpha * local_r ;
+
+	}
+
+}
+
+
 void main()
 {
 	//initialize our test cases
@@ -95,7 +150,7 @@ void main()
 	cudaEventRecord(start, 0);
 
     // Launch a kernel on the GPU with one thread for each row.
-	cg<<<1,size>>>(dev_a,dev_indeces,dev_b,dev_x,size);
+	cg_global<<<1,size>>>(dev_a,dev_indeces,dev_b,dev_x,size);
     // cudaDeviceSynchronize waits for the kernel to finish, and returns
     // any errors encountered during the launch.
 	cudaDeviceSynchronize();
