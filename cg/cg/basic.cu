@@ -57,54 +57,6 @@ __global__  void cg_global(float* a , int * indeces , float* b , float* x,int si
 
 }
 
-__global__ void cg_local(float* a , int * indeces , float* b , float* x,float * r ,float * p_sum ,int size) 
-{
-	int index = blockDim.x * blockIdx.x + threadIdx.x ;
-	float local_r ;
-	
-	if (index < size)
-	{
-		float sum = 0 ;
-
-		for (int i = 0 ; i<3 ; i++)
-		{
-			sum += a[i + 3*index] * x[indeces[i + 3*index]] ;
-		}
-		
-		local_r = b[index] - sum ;
-		r[index]  = local_r;		
-		p_sum[index] = 0 ;
-
-
-		for (int i = 0 ; i<3 ; i++)
-		{
-			p_sum[index] += a[i + 3*index] * r[indeces[i + 3*index]] ;
-		}
-		
-		//calc alpha
-		r[index] = local_r * local_r ;
-		p_sum[index] = p_sum[index] * local_r ;
-		
-		__syncthreads();
-		for (unsigned int s = size/2 ; s> 0 ; s >>= 1)
-		{
-			if (index < size/2)
-			{
-				// summation of r*rT
-				r[index] = r[index] + r[index + s] ;
-				//summation of r*a*rT
-				p_sum[index] = p_sum[index] +  p_sum[index + s] ;
-			}
-			__syncthreads();
-		}
-		
-		float alpha = r[0]/p_sum[0] ;
-		
-		x[index] = x[index] + alpha * local_r ;
-
-	}
-
-}
 
 __global__ void cg_full_global(float* a , int * indeces , float* b , float* x,float * r ,float * r_squared ,float * p_sum ,int size) 
 {
@@ -148,21 +100,18 @@ __global__ void cg_full_global(float* a , int * indeces , float* b , float* x,fl
 			}
 			__syncthreads();
 		}
-		// unique array for the summing block
-	
-
+		
 		// sum between blocks - 1024 or 2048 blocks only
 		int max_index_of_needed_blocks = gridDim.x/1025 ;
 
 		if (blockIdx.x <= max_index_of_needed_blocks && gridDim.x > 1)
 		{
 				r_squared[blockIdx.x] = r_squared[blockIdx.x * blockDim.x] ;
-				//printf("block %d = %f\n",blockIdx.x,r_squared[blockIdx.x]);
 				p_sum[blockIdx.x] = p_sum[blockIdx.x * blockDim.x] ;
 				__syncthreads();
+
 			for (unsigned int s = gridDim.x/2 ; s> 0 ; s >>= 1)
 			{	
-
 				if (index < s/2)
 				{
 					// summation of r*rT
@@ -176,9 +125,7 @@ __global__ void cg_full_global(float* a , int * indeces , float* b , float* x,fl
 		
 		float alpha = r_squared[0]/p_sum[0] ;
 		x[index] = x[index] + alpha * local_r ;
-
 	}
-
 }
 
 void cg(const int size , char* file_name)
