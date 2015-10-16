@@ -106,10 +106,12 @@ __global__ void cg_full_global(float* a , int * indeces , float* b , float* x,fl
 
 		if (blockIdx.x <= max_index_of_needed_blocks && gridDim.x > 1)
 		{
+			if(threadIdx.x == 0)
+			{
 				r_squared[blockIdx.x] = r_squared[blockIdx.x * blockDim.x] ;
 				p_sum[blockIdx.x] = p_sum[blockIdx.x * blockDim.x] ;
-				__syncthreads();
-
+			}
+				
 			for (unsigned int s = gridDim.x/2 ; s> 0 ; s >>= 1)
 			{	
 				if (index < s/2)
@@ -197,7 +199,7 @@ void cg(const int size , char* file_name)
     // Launch a kernel on the GPU with one thread for each row.
 	//cg_local<<<2,900>>>(dev_values,dev_indeces,dev_y,dev_x,dev_r,dev_p_sum,size);
 	//cg_global<<<1,420>>>(dev_values,dev_indeces,dev_y,dev_x,size);
-	cg_full_global<<<504,200>>>(dev_values,dev_indeces,dev_y,dev_x,dev_r,dev_r_squared,dev_p_sum,size);
+	cg_full_global<<<700,394>>>(dev_values,dev_indeces,dev_y,dev_x,dev_r,dev_r_squared,dev_p_sum,size);
     // cudaDeviceSynchronize waits for the kernel to finish, and returns
     // any errors encountered during the launch.
 	cudaDeviceSynchronize();
@@ -231,6 +233,6 @@ char* concat(char *s1, char *s2)
 
 int main()
 {
-	cg(100800,"C:/Users/youssef/Desktop/numerical-solutions-gpu/cg/cg/test_cases/100800");
+	cg(244300,"C:/Users/youssef/Desktop/numerical-solutions-gpu/cg/cg/test_cases/244300");
 	return 1 ;
 }
