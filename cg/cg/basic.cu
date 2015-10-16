@@ -109,8 +109,8 @@ __global__ void cg_local(float* a , int * indeces , float* b , float* x,float * 
 __global__ void cg_full_global(float* a , int * indeces , float* b , float* x,float * r ,float * r_squared ,float * p_sum ,int size) 
 {
 	int index = blockDim.x * blockIdx.x + threadIdx.x ;
-	float local_a[3] = {a[3*index],a[3*index + 1],a[3*index + 2]} ;
-	int local_indeces[3]  = {indeces[3*index],indeces[3*index + 1],indeces[3*index + 2]} ;
+	/*float local_a[3] = {a[3*index],a[3*index + 1],a[3*index + 2]} ;
+	int local_indeces[3]  = {indeces[3*index],indeces[3*index + 1],indeces[3*index + 2]} ;*/
 	
 	if (index < size)
 	{
@@ -118,7 +118,7 @@ __global__ void cg_full_global(float* a , int * indeces , float* b , float* x,fl
 		
 		for (int i = 0 ; i<3 ; i++)
 		{
-			sum += local_a[i] * x[local_indeces[i]] ;
+			sum += a[3*index  + i] * x[indeces[3*index + i]] ;
 		}
 		
 		float local_r = b[index] - sum ;	
@@ -129,17 +129,17 @@ __global__ void cg_full_global(float* a , int * indeces , float* b , float* x,fl
 
 		for (int i = 0 ; i<3 ; i++)
 		{
-			p_sum[index] += local_a[i] * r[local_indeces[i]] ;
+			p_sum[index] += a[3*index  + i] * r[indeces[3*index + i]] ;
 		}
 		
 		//calc alpha
 		r_squared[index] = local_r * local_r ;
 		p_sum[index] = p_sum[index] * local_r ;
-				
-		for (unsigned int s = size/2 ; s> 0 ; s >>= 1)
-		{
-			
-			if (index < size/2)
+		
+		//sum inside block
+		for (unsigned int s = blockDim.x/2 ; s> 0 ; s >>= 1)
+		{	
+			if (threadIdx.x < s/2)
 			{
 				// summation of r*rT
 				r_squared[index] = r_squared[index] + r_squared[index + s] ;
@@ -148,9 +148,33 @@ __global__ void cg_full_global(float* a , int * indeces , float* b , float* x,fl
 			}
 			__syncthreads();
 		}
+		// unique array for the summing block
+	
+
+		// sum between blocks - 1024 or 2048 blocks only
+		int max_index_of_needed_blocks = gridDim.x/1025 ;
+
+		if (blockIdx.x <= max_index_of_needed_blocks && gridDim.x > 1)
+		{
+				r_squared[blockIdx.x] = r_squared[blockIdx.x * blockDim.x] ;
+				//printf("block %d = %f\n",blockIdx.x,r_squared[blockIdx.x]);
+				p_sum[blockIdx.x] = p_sum[blockIdx.x * blockDim.x] ;
+				__syncthreads();
+			for (unsigned int s = gridDim.x/2 ; s> 0 ; s >>= 1)
+			{	
+
+				if (index < s/2)
+				{
+					// summation of r*rT
+					r_squared[index] = r_squared[index] + r_squared[index +  s] ;
+					//summation of r*a*rT
+					p_sum[index] = p_sum[index] +  p_sum[index +  s] ;
+				}
+				__syncthreads();
+			}
+		}
 		
 		float alpha = r_squared[0]/p_sum[0] ;
-		
 		x[index] = x[index] + alpha * local_r ;
 
 	}
@@ -198,7 +222,7 @@ void cg(const int size , char* file_name)
 	float* dev_r_squared = 0 ;
 	float* dev_p_sum = 0;
 
-	int fraction = ceil(size/32.0) ;
+	int fraction = ceil(size/1024.0) ;
 
     cudaSetDevice(0);
 	
@@ -224,9 +248,9 @@ void cg(const int size , char* file_name)
 	cudaEventRecord(start, 0);
 
     // Launch a kernel on the GPU with one thread for each row.
-	//cg_local<<<1,420>>>(dev_values,dev_indeces,dev_y,dev_x,dev_r,dev_p_sum,size);
+	//cg_local<<<2,900>>>(dev_values,dev_indeces,dev_y,dev_x,dev_r,dev_p_sum,size);
 	//cg_global<<<1,420>>>(dev_values,dev_indeces,dev_y,dev_x,size);
-	cg_full_global<<<fraction,32>>>(dev_values,dev_indeces,dev_y,dev_x,dev_r,dev_r_squared,dev_p_sum,size);
+	cg_full_global<<<504,200>>>(dev_values,dev_indeces,dev_y,dev_x,dev_r,dev_r_squared,dev_p_sum,size);
     // cudaDeviceSynchronize waits for the kernel to finish, and returns
     // any errors encountered during the launch.
 	cudaDeviceSynchronize();
@@ -242,6 +266,8 @@ void cg(const int size , char* file_name)
 	printf("%f\n",x[1]);
 	printf("%f\n",x[2]);
 	printf("%f\n",x[3]);
+	printf("%f\n",x[83]);
+	printf("%f\n",x[size -3]);
 	printf("%f\n",x[size -2]);
 	printf("%f\n",x[size -1]);
 	cudaDeviceReset();
@@ -258,6 +284,6 @@ char* concat(char *s1, char *s2)
 
 int main()
 {
-	cg(420,"C:/Users/youssef/Desktop/numerical-solutions-gpu/cg/cg/test_cases/420");
+	cg(100800,"C:/Users/youssef/Desktop/numerical-solutions-gpu/cg/cg/test_cases/100800");
 	return 1 ;
 }
