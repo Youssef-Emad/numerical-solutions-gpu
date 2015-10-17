@@ -7,61 +7,9 @@
 
 char* concat(char *s1, char *s2);
 
-__global__ void cg_one_global(float* a , int * indeces , float* b , float* x,float * r ,float * r_squared ,float * p_sum ,int size) 
+__global__ void r_calculation(float* a , int * indeces , float* b , float* x,float * r  ,int size) 
 {
 	int index = blockDim.x * blockIdx.x + threadIdx.x ;
-	float p_temp = 0 ;
-
-	if (index < size)
-	{
-		float sum = 0 ;
-		
-		for (int i = 0 ; i<3 ; i++)
-		{
-			sum += a[3*index  + i] * x[indeces[3*index + i]] ;
-		}
-		
-		r[index] = b[index] - sum ;	
-		__syncthreads() ;
-		
-		for (int i = 0 ; i<3 ; i++)
-		{
-			p_temp += a[3*index  + i] * r[indeces[3*index + i]] ;
-
-		}
-		
-		p_sum[index] = p_temp ;
-		__syncthreads() ;
-		
-		r_squared[index] = r[index] * r[index] ;
-		p_sum[index] = p_sum[index] * r[index] ;
-	}
-	
-	__syncthreads() ;
-	
-			
-	for (unsigned int s = blockDim.x/2 ; s> 0 ; s >>= 1)
-	{	
-		if (threadIdx.x < s)
-		{
-			r_squared[index] = r_squared[index] + r_squared[index +s] ;
-			p_sum[index] = p_sum[index] + p_sum[index +s] ;
-			__syncthreads() ;
-		}
-			
-	}	
-
-	if (threadIdx.x == 0)
-	{
-		r_squared[blockIdx.x] = r_squared[index];
-		p_sum[blockIdx.x] = p_sum[index];
-		__syncthreads() ;
-	}
-}
-__global__ void cg_zero(float* a , int * indeces , float* b , float* x,float * r  ,int size) 
-{
-	int index = blockDim.x * blockIdx.x + threadIdx.x ;
-	int local_index = threadIdx.x ;
 	
 	if (index < size)
 	{
@@ -77,7 +25,7 @@ __global__ void cg_zero(float* a , int * indeces , float* b , float* x,float * r
 	
 }
 
-__global__ void cg_one_shared(float* a , int * indeces , float* b , float* x,float * r ,float * r_squared ,float * p_sum ,int size) 
+__global__ void r_initial_sum(float* a , int * indeces , float* x,float * r ,float * r_squared ,float * p_sum ,int size) 
 {
 	int index = blockDim.x * blockIdx.x + threadIdx.x ;
 	int local_index = threadIdx.x ;
@@ -121,7 +69,7 @@ __global__ void cg_one_shared(float* a , int * indeces , float* b , float* x,flo
 	}
 }
 
-__global__ void cg_two(float * r_squared ,float * p_sum ,int size) 
+__global__ void r_final_sum_and_alpha_calculation(float * r_squared ,float * p_sum ,int size) 
 {
 	int index = threadIdx.x ;
 
@@ -142,10 +90,10 @@ __global__ void cg_two(float * r_squared ,float * p_sum ,int size)
 	
 	for (unsigned int s = blockDim.x/2 ; s> 0 ; s >>= 1)
 	{	
-		if (threadIdx.x < s)
+		if (index < s)
 		{
-			shared_r_squared[threadIdx.x] = shared_r_squared[threadIdx.x] + shared_r_squared[threadIdx.x +s] ;
-			shared_p_sum[threadIdx.x] = shared_p_sum[threadIdx.x] + shared_p_sum[threadIdx.x +s] ;
+			shared_r_squared[index] = shared_r_squared[index] + shared_r_squared[index +s] ;
+			shared_p_sum[index] = shared_p_sum[index] + shared_p_sum[index +s] ;
 			__syncthreads() ;
 		}	
 	}	
@@ -157,11 +105,14 @@ __global__ void cg_two(float * r_squared ,float * p_sum ,int size)
 	}
 }
 
-__global__ void cg_three(float * x ,float * r,float * r_squared ,int size) 
+__global__ void x_calculation(float * x ,float * r,float * r_squared ,int size) 
 {
 	int index = blockDim.x * blockIdx.x + threadIdx.x ;
-	float alpha = r_squared[0] ;
-	x[index] = x[index] + alpha * r[index] ;
+	if (index < size)
+	{
+		float alpha = r_squared[0] ;
+		x[index] = x[index] + alpha * r[index] ;
+	}
 }
 
 void cg(const int size , char* file_name)
@@ -212,9 +163,20 @@ void cg(const int size , char* file_name)
 	float* dev_r = 0 ;
 	float* dev_r_squared = 0 ;
 	float* dev_p_sum = 0;
+	int number_of_blocks ;
+	int number_of_threads ;
 
-	int number_of_blocks = 10 ;
-	int number_of_threads = 42 ;
+	if (size < 671088)
+	{
+		number_of_blocks = sqrt(size * 1.0) * 0.8 ;
+		number_of_threads = ceil((size * 1.0)/number_of_blocks) ;
+	} 
+	else 
+	{
+		number_of_blocks = ceil(size/1024.0) ;
+		number_of_threads = 1024 ;	
+	}
+	
     cudaSetDevice(0);
 	
     // Allocate GPU buffers
@@ -239,10 +201,10 @@ void cg(const int size , char* file_name)
 	cudaEventRecord(start, 0);
 
     // Launch a kernel on the GPU with one thread for each row.
-	cg_zero<<<number_of_blocks,number_of_threads>>>(dev_values , dev_indeces , dev_y ,  dev_x, dev_r , size) ;
-	cg_one_shared<<<number_of_blocks,number_of_threads>>>(dev_values , dev_indeces , dev_y ,  dev_x, dev_r , dev_r_squared , dev_p_sum , size) ;
-	cg_two<<<1,number_of_blocks>>>(dev_r_squared ,dev_p_sum ,number_of_blocks);
-	cg_three<<<number_of_blocks,number_of_threads>>>( dev_x ,dev_r,dev_r_squared , size);
+	r_calculation<<<number_of_blocks,number_of_threads>>>(dev_values , dev_indeces , dev_y ,  dev_x, dev_r , size) ;
+	r_initial_sum<<<number_of_blocks,number_of_threads>>>(dev_values , dev_indeces , dev_x, dev_r , dev_r_squared , dev_p_sum , size) ;
+	r_final_sum_and_alpha_calculation<<<1,number_of_blocks>>>(dev_r_squared ,dev_p_sum ,number_of_blocks);
+	x_calculation<<<number_of_blocks,number_of_threads>>>( dev_x ,dev_r,dev_r_squared , size);
     // cudaDeviceSynchronize waits for the kernel to finish, and returns
     // any errors encountered during the launch.
 	cudaDeviceSynchronize();
@@ -281,6 +243,6 @@ char* concat(char *s1, char *s2)
 
 int main()
 {
-	cg(420,"C:/Users/youssef/Desktop/numerical-solutions-gpu/cg/cg/test_cases/420");
+	cg(179400,"C:/Users/youssef/Desktop/numerical-solutions-gpu/cg/cg/test_cases/179400");
 	return 1 ;
 }
