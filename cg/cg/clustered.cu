@@ -5,15 +5,18 @@
 #include <string.h>
 #include <math.h>
 
+char* concat(char *s1, char *s2);
+
 __global__ void cg_variable_start(float* a , float* x,float * b ,int size) 
 {
 	int index = blockDim.x * blockIdx.x + threadIdx.x ;
 	int local_index = threadIdx.x ;
 	int block_index = blockIdx.x ;
-	
+
 	__shared__ float shared_r_squared[1024] ;
 	__shared__ float shared_p_sum[1024] ;
 	__shared__ float r[1024] ;
+	float local_r ;
 
 	shared_r_squared[local_index] = 0 ;
 	shared_p_sum[local_index] = 0;
@@ -28,7 +31,8 @@ __global__ void cg_variable_start(float* a , float* x,float * b ,int size)
 			sum += a[3 * index  + i] * x[3 * block_index + i] ;
 		}
 		
-		r[index] = b[index] - sum ;	
+		local_r = b[index] - sum ;	
+		r[local_index] = local_r ;
 		__syncthreads() ;
 
 		for (int i = 0 ; i<3 ; i++)
@@ -37,8 +41,8 @@ __global__ void cg_variable_start(float* a , float* x,float * b ,int size)
 		}
 		__syncthreads() ;
 
-		shared_r_squared[local_index] = r[index] * r[index] ;
-		shared_p_sum[local_index] = shared_p_sum[local_index] * r[index] ;
+		shared_r_squared[local_index] = local_r * local_r ;
+		shared_p_sum[local_index] = shared_p_sum[local_index] * local_r ;
 	}
 	
 	__syncthreads() ;
@@ -58,7 +62,7 @@ __global__ void cg_variable_start(float* a , float* x,float * b ,int size)
 	if (index < size)
 	{
 		float alpha = shared_r_squared[0]/shared_p_sum[0] ;
-		x[index] = x[index] + alpha * r[index] ;	
+		x[index] = x[index] + alpha * local_r ;	
 	}
 
 }
@@ -71,6 +75,7 @@ __global__ void cg_zero_start(float* a , float* x,float * b ,int size)
 	
 	__shared__ float shared_r_squared[1024] ;
 	__shared__ float shared_p_sum[1024] ;
+	float local_b ;
 	
 	shared_r_squared[local_index] = 0 ;
 	shared_p_sum[local_index] = 0;
@@ -78,14 +83,16 @@ __global__ void cg_zero_start(float* a , float* x,float * b ,int size)
 	
 	if (index < size)
 	{
+		local_b = b[index] ;
+
 		for (int i = 0 ; i<3 ; i++)
 		{
 			shared_p_sum[local_index] += a[3*index  + i] * b[3* block_index + i] ;
 		}
 		__syncthreads() ;
 
-		shared_r_squared[local_index] = b[index] * b[index] ;
-		shared_p_sum[local_index] = shared_p_sum[local_index] * b[index] ;
+		shared_r_squared[local_index] = local_b * local_b ;
+		shared_p_sum[local_index] = shared_p_sum[local_index] * local_b ;
 	}
 	
 	__syncthreads() ;
@@ -105,7 +112,7 @@ __global__ void cg_zero_start(float* a , float* x,float * b ,int size)
 	if (index < size)
 	{
 		float alpha = shared_r_squared[0]/shared_p_sum[0] ;
-		x[index] = x[index] + alpha * b[index] ;	
+		x[index] = x[index] + alpha * local_b ;	
 	}
 
 }
