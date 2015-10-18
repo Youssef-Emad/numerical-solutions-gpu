@@ -115,6 +115,22 @@ __global__ void x_calculation(float * x ,float * r,float * r_squared ,int size)
 	}
 }
 
+void cg_zero_start(int size , int number_of_blocks , int number_of_threads,float * values , int * indeces ,float * x , float* y , float * r_squared ,float* p_sum)
+{
+	r_initial_sum<<<number_of_blocks,number_of_threads>>>(values , indeces , x, y , r_squared , p_sum , size) ;
+	r_final_sum_and_alpha_calculation<<<1,number_of_blocks>>>(r_squared ,p_sum ,number_of_blocks);
+	x_calculation<<<number_of_blocks,number_of_threads>>>(x ,y,r_squared , size);
+}
+
+void cg_variable_start(int size , int number_of_blocks , int number_of_threads,float * values , int * indeces ,float * x , float* y , float * r , float * r_squared ,float* p_sum)
+{
+	r_calculation<<<number_of_blocks,number_of_threads>>>(values , indeces , y ,  x, r , size) ;
+	r_initial_sum<<<number_of_blocks,number_of_threads>>>(values , indeces , x, r , r_squared , p_sum , size) ;
+	r_final_sum_and_alpha_calculation<<<1,number_of_blocks>>>(r_squared ,p_sum ,number_of_blocks);
+	x_calculation<<<number_of_blocks,number_of_threads>>>( x ,r,r_squared , size);
+}
+
+
 void cg(const int size , char* file_name)
 {
 	//initialize our test cases
@@ -201,10 +217,7 @@ void cg(const int size , char* file_name)
 	cudaEventRecord(start, 0);
 
     // Launch a kernel on the GPU with one thread for each row.
-	r_calculation<<<number_of_blocks,number_of_threads>>>(dev_values , dev_indeces , dev_y ,  dev_x, dev_r , size) ;
-	r_initial_sum<<<number_of_blocks,number_of_threads>>>(dev_values , dev_indeces , dev_x, dev_r , dev_r_squared , dev_p_sum , size) ;
-	r_final_sum_and_alpha_calculation<<<1,number_of_blocks>>>(dev_r_squared ,dev_p_sum ,number_of_blocks);
-	x_calculation<<<number_of_blocks,number_of_threads>>>( dev_x ,dev_r,dev_r_squared , size);
+	cg_zero_start(size , number_of_blocks , number_of_threads,dev_values , dev_indeces ,dev_x , dev_y , dev_r_squared ,dev_p_sum);
     // cudaDeviceSynchronize waits for the kernel to finish, and returns
     // any errors encountered during the launch.
 	cudaDeviceSynchronize();
@@ -243,6 +256,6 @@ char* concat(char *s1, char *s2)
 
 int main()
 {
-	cg(179400,"C:/Users/youssef/Desktop/numerical-solutions-gpu/cg/cg/test_cases/179400");
+	cg(244300,"C:/Users/youssef/Desktop/numerical-solutions-gpu/cg/cg/test_cases/244300");
 	return 1 ;
 }
