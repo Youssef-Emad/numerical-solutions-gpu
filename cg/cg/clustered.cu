@@ -58,11 +58,23 @@ __global__ void cg_zero_start(float* a , float* x,float * b ,int size)
 	
 }
 
+__global__ void repeat_x_for_clusters(float * x,int size)
+{
+	int index = blockIdx.x * blockDim.x + threadIdx.x ;
+	int thread_index = threadIdx.x ;
+	int block_index = blockIdx.x ;
+
+	if (block_index > 0 && index < size) 
+	{
+		x[index] = x[thread_index] ;
+	}
+}
+
 void cg_clustered(const int size , char* file_name)
 {
 	//initialize our test cases
 
-	int cluster_size = 5;
+	int cluster_size = 349;
 	int number_of_clusters = size / cluster_size ;
 	int y_size = size + 2 * number_of_clusters;
 
@@ -138,8 +150,9 @@ void cg_clustered(const int size , char* file_name)
 	cudaEventRecord(start, 0);
 
     // Launch a kernel on the GPU with one thread for each row.
-	cg_zero_start<<<number_of_clusters,cluster_size>>>(dev_values , dev_x,dev_y ,size) ;
-	// cudaDeviceSynchronize waits for the kernel to finish, and returns
+	cg_zero_start<<<1,cluster_size>>>(dev_values , dev_x,dev_y ,size) ;
+	repeat_x_for_clusters<<<number_of_clusters,cluster_size>>>(dev_x,size)	;
+		// cudaDeviceSynchronize waits for the kernel to finish, and returns
     // any errors encountered during the launch.
 	cudaDeviceSynchronize();
 	cudaEventRecord(stop, 0);
@@ -150,10 +163,10 @@ void cg_clustered(const int size , char* file_name)
     // Copy output vector from GPU buffer to host memory.
     cudaMemcpy(x, dev_x, size * sizeof(float), cudaMemcpyDeviceToHost);
 
-	for (int i = 0 ; i< size ; i++)
+	/*for (int i = 0 ; i< cluster_size ; i++)
 	{
 		printf(" %d = %f\n",i,x[i]);
-	}
+	}*/
 	
 	cudaFree(dev_values);
 	cudaFree(dev_y);
@@ -166,6 +179,6 @@ void cg_clustered(const int size , char* file_name)
 int main()
 {
 	//cg(60,"C:/Users/youssef/Desktop/numerical-solutions-gpu/cg/cg/test_cases/60");
-	cg_clustered(60,"c:/users/youssef/desktop/numerical-solutions-gpu/cg/cg");
+	cg_clustered(244300,"c:/users/youssef/desktop/numerical-solutions-gpu/cg/cg");
 	return 1 ;
 }
