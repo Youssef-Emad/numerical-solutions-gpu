@@ -210,31 +210,15 @@ void cg(const int size , char* file_name)
 	cudaMemcpyAsync(dev_y, y, size * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpyAsync(dev_x, x, size * sizeof(float), cudaMemcpyHostToDevice);
 	
-	cudaEvent_t start, stop;
-	float time;
-	cudaEventCreate(&start);
-	cudaEventCreate(&stop);
-	cudaEventRecord(start, 0);
-
     // Launch a kernel on the GPU with one thread for each row.
 	cg_zero_start(size , number_of_blocks , number_of_threads,dev_values , dev_indeces ,dev_x , dev_y , dev_r_squared ,dev_p_sum);
     // cudaDeviceSynchronize waits for the kernel to finish, and returns
     // any errors encountered during the launch.
 	cudaDeviceSynchronize();
-	cudaEventRecord(stop, 0);
-	cudaEventSynchronize(stop);
-	cudaEventElapsedTime(&time, start, stop);
-	printf ("Time for the kernel: %f ms\n", time);
 
     // Copy output vector from GPU buffer to host memory.
     cudaMemcpy(x, dev_x, size * sizeof(float), cudaMemcpyDeviceToHost);
 
-	printf("%f\n",x[0]);
-	printf("%f\n",x[1]);
-	printf("%f\n",x[2]);
-	printf("%f\n",x[size -2]);
-	printf("%f\n",x[size -1]);
-	
 	cudaFree(dev_values);
 	cudaFree(dev_indeces) ;
 	cudaFree(dev_y);
@@ -252,10 +236,4 @@ char* concat(char *s1, char *s2)
     strcpy(result, s1);
     strcat(result, s2);
     return result;
-}
-
-int main()
-{
-	cg(244300,"C:/Users/youssef/Desktop/numerical-solutions-gpu/cg/cg/test_cases/244300");
-	return 1 ;
 }

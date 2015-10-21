@@ -70,12 +70,14 @@ __global__ void repeat_x_for_clusters(float * x,int size)
 	}
 }
 
-void cg_clustered(const int size , char* file_name)
+void cg_clustered(const int number_of_elements , char* file_name)
 {
 	//initialize our test cases
 
-	int cluster_size = 349;
-	int number_of_clusters = size / cluster_size ;
+	int cluster_size = number_of_elements - 1;
+	int number_of_clusters = 2 * number_of_elements ;
+	int size = number_of_clusters * cluster_size ;
+
 	int y_size = size + 2 * number_of_clusters;
 
 	float *values = (float *)malloc(3 * size * sizeof(float));
@@ -143,42 +145,20 @@ void cg_clustered(const int size , char* file_name)
 	cudaMemcpyAsync(dev_y, y, y_size * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpyAsync(dev_x, x, size * sizeof(float), cudaMemcpyHostToDevice);
 	
-	cudaEvent_t start, stop;
-	float time;
-	cudaEventCreate(&start);
-	cudaEventCreate(&stop);
-	cudaEventRecord(start, 0);
-
     // Launch a kernel on the GPU with one thread for each row.
 	cg_zero_start<<<1,cluster_size>>>(dev_values , dev_x,dev_y ,size) ;
 	repeat_x_for_clusters<<<number_of_clusters,cluster_size>>>(dev_x,size)	;
-		// cudaDeviceSynchronize waits for the kernel to finish, and returns
+
+	// cudaDeviceSynchronize waits for the kernel to finish, and returns
     // any errors encountered during the launch.
 	cudaDeviceSynchronize();
-	cudaEventRecord(stop, 0);
-	cudaEventSynchronize(stop);
-	cudaEventElapsedTime(&time, start, stop);
-	printf ("Time for the kernel: %f ms\n", time);
 
     // Copy output vector from GPU buffer to host memory.
     cudaMemcpy(x, dev_x, size * sizeof(float), cudaMemcpyDeviceToHost);
-
-	/*for (int i = 0 ; i< cluster_size ; i++)
-	{
-		printf(" %d = %f\n",i,x[i]);
-	}*/
 	
 	cudaFree(dev_values);
 	cudaFree(dev_y);
 	cudaFree(dev_x);
 	
 	cudaDeviceReset();
-	system("pause");
-}
-
-int main()
-{
-	//cg(60,"C:/Users/youssef/Desktop/numerical-solutions-gpu/cg/cg/test_cases/60");
-	cg_clustered(244300,"c:/users/youssef/desktop/numerical-solutions-gpu/cg/cg");
-	return 1 ;
 }
