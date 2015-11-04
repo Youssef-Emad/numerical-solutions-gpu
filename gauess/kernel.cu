@@ -19,7 +19,6 @@ __global__ void GaussianEliminationGlobal(const int clusterSize,float *x, const 
 		for (int j = gi; j < gi + clusterSize;++j)
 		{
 			matrix[i][j]=0;
-			
 		}
 		matrix[i][i] = diagonal_values[i];
 	}
@@ -124,10 +123,6 @@ void gaussianCuda(const int noElem, char* file_name)
 	float *output = (float *)malloc(size * sizeof(float));
 	
 	const int clusterSize = noElem - 1;
-	cudaEvent_t start, stop;
-	float time;
-	cudaEventCreate(&start);
-	cudaEventCreate(&stop);
 	
 	char* diagonal_values_file_name = concat(file_name,"/Diag.txt") ;
 	char* non_diagonal_values_file_name = concat(file_name,"/values.txt");
@@ -172,18 +167,12 @@ void gaussianCuda(const int noElem, char* file_name)
 	const dim3 blockDim(noElem,1,1);
 	const dim3 gridDim(2 ,1,1);
 
-	cudaEventRecord(start, 0);
 	//uncomment the methode you want to use
     //GaussianEliminationGlobal<<<gridDim, blockDim/*,(clusterSize * clusterSize) * sizeof(float)*/>>>(clusterSize,dev_x, dev_diagonal_values , dev_non_diagonal_values , dev_y,size);
 	//GaussianEliminationShared<<<2*noElem, 1/*,(clusterSize * clusterSize) * sizeof(float)*/>>>(clusterSize,dev_x, dev_diagonal_values , dev_non_diagonal_values , dev_y);
 		
-	//cudaEventRecord(stop, 0);
 	cudaDeviceSynchronize();
 
-	cudaEventRecord(stop, 0);
-	cudaEventSynchronize(stop);
-	cudaEventElapsedTime(&time, start, stop);
-	printf ("Time for the kernel: %f ms\n", time);
     // Copy output vector from GPU buffer to host memory.
    cudaMemcpyAsync(x, dev_x, size * sizeof(float), cudaMemcpyDeviceToHost);
 	// Write the values in X array to the file out
@@ -209,12 +198,4 @@ char* concat(char *s1, char *s2)
     strcpy(result, s1);
     strcat(result, s2);
     return result;
-}
-int main()
-{
-	gaussianCuda(10,"D:\codetest");
-	// cudaDeviceReset must be called before exiting in order for profiling and
-    // tracing tools such as Nsight and Visual Profiler to show complete traces.
-    system("pause");
-    return 0;
 }
