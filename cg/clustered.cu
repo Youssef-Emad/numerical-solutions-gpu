@@ -10,7 +10,6 @@ void cg(const int size , char* file_name);
 
 __global__ void cg_zero_start(float* a , float* x,float * b ,int size) 
 {
-
 	int index = blockDim.x * blockIdx.x + threadIdx.x ;
 	int local_index = threadIdx.x ;
 	int block_index = blockIdx.x ;
@@ -25,7 +24,6 @@ __global__ void cg_zero_start(float* a , float* x,float * b ,int size)
 
 	if (index < size)
 	{
-
 		local_b = b[index + 2 * block_index + 1] ;
 
 		for (int i = 0 ; i<3 ; i++)
@@ -34,7 +32,6 @@ __global__ void cg_zero_start(float* a , float* x,float * b ,int size)
 		}
 		__syncthreads() ;
 		
-
 		shared_r_squared[local_index] = local_b * local_b ;
 		shared_p_sum[local_index] = shared_p_sum[local_index] * local_b ;
 		
@@ -49,13 +46,11 @@ __global__ void cg_zero_start(float* a , float* x,float * b ,int size)
 				__syncthreads() ;
 			}
 		}	
-
 		__syncthreads();
 
 		float alpha = shared_r_squared[0]/shared_p_sum[0] ;
 		x[index] = x[index] + alpha * local_b ;	
 	}
-	
 }
 
 __global__ void repeat_x_for_clusters(float * x,int size)
