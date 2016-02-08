@@ -63,7 +63,8 @@ __global__ void jacobiOneShared(float *x, const float *diagonal_values , const f
 	}
 }*/
 
-__global__ void jacobiFirstLocal(float *x, const float *diagonal_values , const float *non_diagonal_values, const int *indeces ,const float *y, const int size)
+__global__ void jacobiFirstLocal(float *x, const float *diagonal_values , const float *non_diagonal_values,
+				 const int *indeces ,const float *y, const int size)
 {
 	const int index = blockIdx.x * blockDim.x + threadIdx.x;
 	float error = 1 ;
